@@ -11,16 +11,17 @@ pub(crate) fn read_be_u32(input: &[u8]) -> u32 {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum FileReadError {
-    UnexpectedStartingIdentifyer(BlorbChunkType),
+    UnexpectedStartingIdentifier(BlorbChunkType),
     /// An invalid length was supplied. Actual and Expected.
     InvalidLength(usize, usize),
     UnknownIdentifier(usize),
+    InvalidConversion,
 }
 
 impl Display for FileReadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FileReadError::UnexpectedStartingIdentifyer(expected) => {
+            FileReadError::UnexpectedStartingIdentifier(expected) => {
                 write!(f, "Unexpected starting identifier. Expected {:?}", expected)
             }
             FileReadError::InvalidLength(actual, expected) => {
@@ -31,7 +32,10 @@ impl Display for FileReadError {
                 )
             }
             FileReadError::UnknownIdentifier(id) => {
-                write!(f, "An unknwon identifier was supplied: {}", id)
+                write!(f, "An unknown identifier was supplied: {}", id)
+            }
+            FileReadError::InvalidConversion => {
+                write!(f, "An invalid conversion was attempted")
             }
         }
     }

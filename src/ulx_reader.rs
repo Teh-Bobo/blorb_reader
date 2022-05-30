@@ -1,6 +1,5 @@
-use crate::blorb_reader::Chunk;
 use crate::BlorbChunkType::EXEC_GLUL;
-use crate::FileReadError::UnexpectedStartingIdentifyer;
+use crate::FileReadError::UnexpectedStartingIdentifier;
 use crate::{read_be_u32, BlorbChunkType, FileReadError};
 use std::fmt::{Debug, Display, Formatter};
 use TryInto;
@@ -24,19 +23,6 @@ impl<'a> TryFrom<&'a [u8]> for UlxReader<'a> {
             debugging_header,
             memory,
         })
-    }
-}
-
-impl<'a> TryFrom<&Chunk<'a>> for UlxReader<'a> {
-    type Error = FileReadError;
-
-    fn try_from(value: &Chunk<'a>) -> Result<Self, Self::Error> {
-        if value.chunk_type != BlorbChunkType::EXEC_GLUL {
-            return Err(FileReadError::UnexpectedStartingIdentifyer(
-                BlorbChunkType::EXEC_GLUL,
-            ));
-        }
-        value.data.try_into()
     }
 }
 
@@ -84,7 +70,7 @@ impl TryFrom<&[u8]> for GlulxHeader {
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         let magic_num = read_be_u32(&bytes[..4]);
         if magic_num != GLUL_AS_NUM {
-            return Err(UnexpectedStartingIdentifyer(EXEC_GLUL));
+            return Err(UnexpectedStartingIdentifier(EXEC_GLUL));
         }
         Ok(GlulxHeader {
             magic_num,
@@ -138,7 +124,7 @@ impl TryFrom<&[u8]> for GlulxDebuggingHeader {
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let id = read_be_u32(&value[..4]);
         if id != INFO_AS_NUM {
-            return Err(FileReadError::UnexpectedStartingIdentifyer(
+            return Err(UnexpectedStartingIdentifier(
                 BlorbChunkType::INFO,
             ));
         }

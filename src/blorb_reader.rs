@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use image::codecs::jpeg::JpegDecoder;
+use image::codecs::png::PngDecoder;
 
 use crate::blorb_chunk_types::BlorbChunkType;
 use crate::ulx_reader::UlxReader;
-use crate::FileReadError::{InvalidLength, UnexpectedStartingIdentifyer};
+use crate::FileReadError::{InvalidLength, UnexpectedStartingIdentifier};
 use crate::{read_be_u32, FileReadError};
 
 struct FileIndex<'a>(HashMap<BlorbChunkType, HashMap<i32, Chunk<'a>>>);
@@ -14,7 +16,7 @@ pub struct BlorbReader<'a> {
 }
 
 impl Display for BlorbReader<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         f.write_str("BlorbReader{ file_index: ")?;
         for (k, v) in &self.file_index.0 {
             f.write_fmt(format_args!("{:?}{{", k))?;
@@ -28,9 +30,15 @@ impl Display for BlorbReader<'_> {
     }
 }
 
+pub enum ChunkData<'a> {
+    Executable(&'a [u8]),
+    PNG(PngDecoder<&'a [u8]>),
+    JPG(JpegDecoder<&'a [u8]>),
+}
+
 pub struct Chunk<'a> {
     pub chunk_type: BlorbChunkType,
-    pub data: &'a [u8],
+    pub data: ChunkData<'a>,
 }
 
 impl<'a> TryFrom<&'a [u8]> for Chunk<'a> {
@@ -42,13 +50,18 @@ impl<'a> TryFrom<&'a [u8]> for Chunk<'a> {
         }
         let chunk_type = read_be_u32(&value[..4]).try_into()?;
         let len = read_be_u32(&value[4..8]);
-        let data = &value[8..(len as usize)];
+        let data = match chunk_type {
+            BlorbChunkType::PICTURE_PNG => ChunkData::PNG(PngDecoder::new(&value[8..(len as usize)]).unwrap()),
+            BlorbChunkType::PICTURE_JPEG => ChunkData::JPG(JpegDecoder::new(&value[8..(len as usize)]).unwrap()),
+            BlorbChunkType::EXEC_GLUL => ChunkData::Executable(&value[8..(len as usize)]),
+            _ => panic!()
+        };
         Ok(Chunk { chunk_type, data })
     }
 }
 
 impl<'a> Display for Chunk<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         f.write_fmt(format_args!("Chunk type: {:?}", self.chunk_type,))?;
         Ok(())
     }
@@ -61,7 +74,7 @@ impl<'a> TryFrom<&'a [u8]> for FileIndex<'a> {
         const INDEX_HEADER_SIZE: usize = 12;
         const CHUNK_HEADER_SIZE: usize = 12;
         if read_be_u32(&value[..4]) != BlorbChunkType::RESOURCE_INDEX as u32 {
-            return Err(FileReadError::UnexpectedStartingIdentifyer(
+            return Err(UnexpectedStartingIdentifier(
                 BlorbChunkType::RESOURCE_INDEX,
             ));
         }
@@ -96,7 +109,7 @@ impl<'a> TryFrom<&'a [u8]> for BlorbReader<'a> {
 
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         if read_be_u32(&value[..4]) != BlorbChunkType::FORM as u32 {
-            return Err(UnexpectedStartingIdentifyer(BlorbChunkType::FORM));
+            return Err(UnexpectedStartingIdentifier(BlorbChunkType::FORM));
         }
         if read_be_u32(&value[4..8]) != (value.len() - 8) as u32 {
             return Err(InvalidLength(
@@ -105,7 +118,7 @@ impl<'a> TryFrom<&'a [u8]> for BlorbReader<'a> {
             ));
         }
         if read_be_u32(&value[8..12]) != BlorbChunkType::IFRS as u32 {
-            return Err(UnexpectedStartingIdentifyer(BlorbChunkType::IFRS));
+            return Err(UnexpectedStartingIdentifier(BlorbChunkType::IFRS));
         }
 
         let file_index = value[12..].try_into()?;
@@ -119,12 +132,34 @@ impl<'a> BlorbReader<'a> {
         bytes.try_into()
     }
 
-    pub fn get_exec(&self, id: i32) -> Option<UlxReader> {
+    pub fn get_exec(&'a self, id: i32) -> Option<UlxReader> {
         let c = self
             .file_index
             .0
             .get(&BlorbChunkType::EXECUTABLE)?
             .get(&id)?;
-        c.try_into().ok()
+        match c.data {
+            ChunkData::Executable(data) => data.try_into().ok(),
+            _ => None,
+        }
+    }
+
+    pub fn get_image(&'a self, id: i32) -> Option<&'a ChunkData<'a>> {
+        let c = self.get(BlorbChunkType::PICTURE, id);
+        if let Some(cd) = c {
+            if let ChunkData::Executable(_) = cd {
+                return None;
+            }
+        }
+        c
+    }
+
+    pub fn get(&'a self, chunk_type: BlorbChunkType, id: i32) -> Option<&'a ChunkData<'a>> {
+        Some(&self
+            .file_index
+            .0
+            .get(&chunk_type)?
+            .get(&id)?
+            .data)
     }
 }
