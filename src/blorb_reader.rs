@@ -32,8 +32,8 @@ impl Display for BlorbReader<'_> {
 
 pub enum ChunkData<'a> {
     Executable(&'a [u8]),
-    PNG(PngDecoder<&'a [u8]>),
-    JPG(JpegDecoder<&'a [u8]>),
+    PNG(Box<PngDecoder<&'a [u8]>>),
+    JPG(Box<JpegDecoder<&'a [u8]>>),
 }
 
 pub struct Chunk<'a> {
@@ -51,8 +51,8 @@ impl<'a> TryFrom<&'a [u8]> for Chunk<'a> {
         let chunk_type = read_be_u32(&value[..4]).try_into()?;
         let len = read_be_u32(&value[4..8]);
         let data = match chunk_type {
-            BlorbChunkType::PICTURE_PNG => ChunkData::PNG(PngDecoder::new(&value[8..(len as usize)]).unwrap()),
-            BlorbChunkType::PICTURE_JPEG => ChunkData::JPG(JpegDecoder::new(&value[8..(len as usize)]).unwrap()),
+            BlorbChunkType::PICTURE_PNG => ChunkData::PNG(Box::new(PngDecoder::new(&value[8..(len as usize)]).unwrap())),
+            BlorbChunkType::PICTURE_JPEG => ChunkData::JPG(Box::new(JpegDecoder::new(&value[8..(len as usize)]).unwrap())),
             BlorbChunkType::EXEC_GLUL => ChunkData::Executable(&value[8..(len as usize)]),
             _ => panic!()
         };
