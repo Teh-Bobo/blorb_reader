@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+#[cfg(feature = "images")]
 use image::codecs::jpeg::JpegDecoder;
+#[cfg(feature = "images")]
 use image::codecs::png::PngDecoder;
 
 use crate::blorb_chunk_types::BlorbChunkType;
@@ -32,7 +34,9 @@ impl Display for BlorbReader<'_> {
 
 pub enum ChunkData<'a> {
     Executable(&'a [u8]),
+    #[cfg(feature = "images")]
     PNG(Box<PngDecoder<&'a [u8]>>),
+    #[cfg(feature = "images")]
     JPG(Box<JpegDecoder<&'a [u8]>>),
 }
 
@@ -51,10 +55,12 @@ impl<'a> TryFrom<&'a [u8]> for Chunk<'a> {
         let chunk_type = read_be_u32(&value[..4]).try_into()?;
         let len = read_be_u32(&value[4..8]);
         let data = match chunk_type {
+            #[cfg(feature = "images")]
             BlorbChunkType::PICTURE_PNG => ChunkData::PNG(Box::new(PngDecoder::new(&value[8..(len as usize)]).unwrap())),
+            #[cfg(feature = "images")]
             BlorbChunkType::PICTURE_JPEG => ChunkData::JPG(Box::new(JpegDecoder::new(&value[8..(len as usize)]).unwrap())),
             BlorbChunkType::EXEC_GLUL => ChunkData::Executable(&value[8..(len as usize)]),
-            _ => panic!()
+            _ => return Err(FileReadError::InvalidConversion)
         };
         Ok(Chunk { chunk_type, data })
     }
@@ -138,12 +144,14 @@ impl<'a> BlorbReader<'a> {
             .0
             .get(&BlorbChunkType::EXECUTABLE)?
             .get(&id)?;
+        #[allow(unreachable_patterns)] // the _ is unreachable if none of the optional features are enabled
         match c.data {
             ChunkData::Executable(data) => data.try_into().ok(),
             _ => None,
         }
     }
 
+    #[cfg(feature = "images")]
     pub fn get_image(&'a self, id: i32) -> Option<&'a ChunkData<'a>> {
         let c = self.get(BlorbChunkType::PICTURE, id);
         if let Some(cd) = c {
