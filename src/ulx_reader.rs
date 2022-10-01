@@ -42,6 +42,20 @@ pub struct GlulxHeader {
     pub checksum: u32,
 }
 
+impl GlulxHeader {
+    pub fn get_major_version(&self) -> u16 {
+        (self.version >> 16) as u16
+    }
+
+    pub fn get_minor_version(&self) -> u8 {
+        ((self.version & 0xff00) >> 8) as u8
+    }
+
+    pub fn get_sub_minor_version(&self) -> u8 {
+        self.version as u8
+    }
+}
+
 impl Display for GlulxHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
@@ -49,9 +63,9 @@ impl Display for GlulxHeader {
             end_mem: {}, stack_size: {}, start_function_address: {}, decoding_table_address: {}, \
             checksum: {} }}",
             String::from_utf8_lossy(&self.magic_num.to_be_bytes()),
-            self.version >> 16,
-            (self.version & 0xff00) >> 8,
-            self.version & 0xff,
+            self.get_major_version(),
+            self.get_minor_version(),
+            self.get_sub_minor_version(),
             self.ram_start,
             self.ext_start,
             self.end_mem,
