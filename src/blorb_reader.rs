@@ -146,10 +146,8 @@ impl<'a> BlorbReader<'a> {
 
     pub fn get_image(&'a self, id: i32) -> Option<&'a ChunkData<'a>> {
         let c = self.get(BlorbChunkType::PICTURE, id);
-        if let Some(cd) = c {
-            if let ChunkData::Executable(_) = cd {
-                return None;
-            }
+        if let Some(ChunkData::Executable(_)) = c {
+            return None;
         }
         c
     }
