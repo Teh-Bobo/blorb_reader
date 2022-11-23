@@ -2,10 +2,3 @@
 name = "file_reader"
 version = "0.2.0"
 edition = "2021"
-
-[features]
-default = []
-images = []
-
-[dependencies]
-image = { version="0.24.2", features=["jpeg", "png"], default-features = false}
