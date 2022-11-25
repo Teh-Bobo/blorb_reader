@@ -1,9 +1,10 @@
-use crate::blorb_chunk_types::BlorbChunkType;
 use std::fmt::{Display, Formatter};
+
+use crate::blorb_chunk_types::BlorbChunkType;
 use crate::blorb_reader::BlorbReader;
 use crate::ulx_reader::UlxReader;
 
-mod blorb_chunk_types;
+pub mod blorb_chunk_types;
 pub mod blorb_reader;
 pub mod ulx_reader;
 
