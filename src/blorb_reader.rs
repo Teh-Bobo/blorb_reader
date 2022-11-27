@@ -48,9 +48,11 @@ impl<'a> TryFrom<&'a [u8]> for Chunk<'a> {
         let chunk_type = read_be_u32(&value[..4]).try_into()?;
         let len = read_be_u32(&value[4..8]);
         let data = match chunk_type {
-            BlorbChunkType::PICTURE_PNG | BlorbChunkType::PICTURE_JPEG => ChunkData::Picture(&value[8..(len as usize)]),
-            BlorbChunkType::EXEC_GLUL => ChunkData::Executable(&value[8..(len as usize)]),
-            _ => return Err(FileReadError::InvalidConversion)
+            BlorbChunkType::PICTURE_PNG | BlorbChunkType::PICTURE_JPEG => {
+                ChunkData::Picture(&value[8..][..(len as usize)])
+            }
+            BlorbChunkType::EXEC_GLUL => ChunkData::Executable(&value[8..][..(len as usize)]),
+            _ => return Err(FileReadError::InvalidConversion),
         };
         Ok(Chunk { chunk_type, data })
     }
@@ -70,9 +72,7 @@ impl<'a> TryFrom<&'a [u8]> for FileIndex<'a> {
         const INDEX_HEADER_SIZE: usize = 12;
         const CHUNK_HEADER_SIZE: usize = 12;
         if read_be_u32(&value[..4]) != BlorbChunkType::RESOURCE_INDEX as u32 {
-            return Err(UnexpectedStartingIdentifier(
-                BlorbChunkType::RESOURCE_INDEX,
-            ));
+            return Err(UnexpectedStartingIdentifier(BlorbChunkType::RESOURCE_INDEX));
         }
         // let index_len = read_be_u32(&v[4..8]);
         let num_in_index = read_be_u32(&value[8..12]);
@@ -148,11 +148,6 @@ impl<'a> BlorbReader<'a> {
     }
 
     pub fn get(&'a self, chunk_type: BlorbChunkType, id: i32) -> Option<&'a ChunkData<'a>> {
-        Some(&self
-            .file_index
-            .0
-            .get(&chunk_type)?
-            .get(&id)?
-            .data)
+        Some(&self.file_index.0.get(&chunk_type)?.get(&id)?.data)
     }
 }
